@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Routine | Excellence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
+        :root { --primary: #fb7185; --secondary: #fff1f2; --accent: #fda4af; --text: #4c0519; }
+        body { font-family: 'Quicksand', sans-serif; background-color: var(--secondary); color: var(--text); overflow-x: hidden; }
+        .soft-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(15px); border-radius: 32px; box-shadow: 0 15px 35px rgba(251, 113, 133, 0.1); border: 1px solid rgba(255, 255, 255, 0.8); }
+        
+        /* Sidebar */
+        .sidebar { position: fixed; left: -300px; top: 0; width: 280px; height: 100%; background: white; z-index: 2000; transition: 0.4s; box-shadow: 10px 0 30px rgba(0,0,0,0.05); padding: 30px 20px; }
+        .sidebar.active { left: 0; }
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(76, 5, 25, 0.2); backdrop-filter: blur(4px); z-index: 1500; }
+
+        /* Calendário */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .day-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .day-period { background: #fb7185 !important; color: white !important; }
+        .day-fertile { background: #f5d0fe !important; color: #701a75 !important; }
+        .day-today { border: 2px solid #4c0519; }
+
+        /* Modais */
+        .custom-modal { display: none; position: fixed; inset: 0; background: rgba(255, 241, 242, 0.98); z-index: 3000; padding: 20px; align-items: center; justify-content: center; }
+        .modal-paper { max-width: 700px; width: 100%; background: white; border-radius: 40px; padding: 40px; box-shadow: 0 20px 50px rgba(251,113,133,0.1); border: 1px solid #ffe4e6; overflow-y: auto; max-height: 90vh; }
+
+        .tooltip { display: none; position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%); background: #4c0519; color: white; padding: 12px; border-radius: 16px; width: 200px; font-size: 11px; z-index: 100; }
+        .task-done { opacity: 0.5; filter: grayscale(1); text-decoration: line-through; }
+        .animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .btn-primary { background: var(--primary); color: white; border-radius: 20px; transition: 0.3s; }
+        
+        .history-item { border-left: 4px solid var(--primary); background: #fffafa; padding: 15px; border-radius: 15px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="overlay" class="overlay" onclick="toggleSidebar()"></div>
+
+    <nav id="sidebar" class="sidebar">
+        <div class="flex justify-between items-center mb-8 font-black text-rose-600 uppercase">Nexus Hub <button onclick="toggleSidebar()"><i class="fas fa-times"></i></button></div>
+        <div class="space-y-3">
+            <button onclick="showSection('main')" class="w-full text-left p-4 rounded-2xl hover:bg-rose-50 flex items-center gap-3"><i class="fas fa-home text-rose-400"></i> Início</button>
+            <button onclick="showSection('health')" class="w-full text-left p-4 rounded-2xl hover:bg-rose-50 flex items-center gap-3"><i class="fas fa-heartbeat text-rose-400"></i> Vida Saudável</button>
+            <button onclick="showSection('cycle')" class="w-full text-left p-4 rounded-2xl hover:bg-rose-50 flex items-center gap-3"><i class="fas fa-calendar-alt text-rose-400"></i> Meu Ciclo</button>
+            <button onclick="showSection('history')" class="w-full text-left p-4 rounded-2xl hover:bg-rose-50 flex items-center gap-3"><i class="fas fa-bookmark text-rose-400"></i> Salvos (Conclusões)</button>
+            <button onclick="openDiary()" class="w-full text-left p-4 rounded-2xl hover:bg-rose-50 flex items-center gap-3"><i class="fas fa-book text-rose-400"></i> Diário 🌸</button>
+        </div>
+        <div class="mt-10 p-4 bg-rose-50 rounded-2xl">
+            <label class="text-[10px] font-bold text-rose-400 uppercase">Sua Idade</label>
+            <input type="number" id="user-age" onchange="updateAge()" class="w-full bg-transparent border-b border-rose-200 outline-none font-bold text-rose-700">
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <header class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="text-2xl text-rose-600 bg-white w-12 h-12 rounded-2xl shadow-sm"><i class="fas fa-bars"></i></button>
+                <h1 class="text-3xl font-black text-rose-600 tracking-tighter">NEXUS<span class="text-rose-300">ROUTINE</span></h1>
+            </div>
+            <div class="bg-white px-6 py-2 rounded-full shadow-sm text-rose-600 font-bold flex items-center gap-2"><i class="fas fa-fire"></i> <span id="streak-count">0</span> Dias</div>
+        </header>
+
+        <main id="section-main" class="space-y-8">
+            <div id="morning-card" class="soft-card p-8 mb-8 border-l-8 border-rose-400 animate-pop hidden">
+                <h2 class="text-2xl font-bold text-rose-800">Bom dia, estrela! ✨</h2>
+                <p class="text-rose-600 mt-1">Hoje é um novo dia para evoluir.</p>
+                <div class="flex flex-wrap gap-2 mt-6">
+                    <button onclick="handleMood()" class="px-5 py-2 bg-rose-500 rounded-full font-bold text-white">Determinada</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-4 space-y-8">
+                    <div class="soft-card p-6 bg-gradient-to-br from-rose-500 to-rose-400 text-white">
+                        <div class="flex justify-between items-center mb-2"><span class="text-[10px] uppercase font-bold opacity-80">Grau Bronze</span><span class="font-black">Nível <span id="display-level">1</span></span></div>
+                        <div class="w-full bg-white/20 h-2 rounded-full mb-2"><div id="level-bar" class="bg-white h-full transition-all duration-700" style="width: 0%"></div></div>
+                        <p class="text-[10px] text-right font-bold opacity-80"><span id="current-points">0</span>/55 PTS</p>
+                    </div>
+                    <div class="soft-card p-6"><h3 class="font-bold text-rose-700 mb-4 text-xs uppercase flex items-center gap-2"><i class="fas fa-tasks"></i> Hábitos (Diário)</h3><div id="habit-list" class="space-y-2"></div></div>
+                    <div class="soft-card p-6"><h3 class="font-bold text-rose-700 mb-4 text-xs uppercase">Sugestões (Segure para ler)</h3><div id="idea-list" class="space-y-2"></div></div>
+                </div>
+
+                <div class="lg:col-span-8 soft-card p-8">
+                    <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-rose-900">Minha Jornada</h2><button onclick="resetJornada()" class="text-[10px] font-bold text-rose-300 hover:text-rose-50 uppercase">Limpar Tudo</button></div>
+                    <div class="flex gap-2 mb-8"><input type="text" id="task-input" placeholder="Nova conquista..." class="flex-1 p-4 rounded-2xl bg-rose-50/50 outline-none"><button onclick="addTask()" class="px-8 btn-primary font-bold">Add</button></div>
+                    <ul id="task-list" class="space-y-3"></ul>
+                </div>
+            </div>
+
+            <button onclick="openConclusion()" class="w-full soft-card p-8 flex justify-between items-center border-2 border-dashed border-rose-200 hover:bg-rose-50 transition-all">
+                <div class="flex items-center gap-6">
+                    <div class="w-16 h-16 bg-rose-500 text-white rounded-full flex items-center justify-center text-2xl shadow-lg"><i class="fas fa-moon"></i></div>
+                    <div class="text-left"><h2 class="text-2xl font-black text-rose-700">Concluir meu Dia</h2><p class="text-rose-400">Análise do dia e registro nos Salvos.</p></div>
+                </div>
+                <i class="fas fa-arrow-right text-rose-300 text-xl"></i>
+            </button>
+
+            <button onclick="showSection('cycle')" class="w-full soft-card p-8 flex justify-between items-center hover:scale-[1.01] transition-transform">
+                <div class="flex items-center gap-6"><div class="text-4xl">🌸</div><div class="text-left"><h2 class="text-2xl font-black text-rose-600">Meu Ciclo, Minha Vida</h2><p class="text-rose-400">Entenda seu corpo e acompanhe as fases.</p></div></div>
+                <i class="fas fa-chevron-right text-rose-200 text-2xl"></i>
+            </button>
+        </main>
+
+        <section id="section-history" class="hidden animate-pop space-y-6">
+            <button onclick="showSection('main')" class="font-bold text-rose-500 flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button>
+            <div class="soft-card p-8">
+                <h2 class="text-2xl font-black text-rose-700 mb-6">Conclusões Salvas 📖</h2>
+                <div id="history-list" class="space-y-4"></div>
+            </div>
+        </section>
+
+        <section id="section-cycle" class="hidden animate-pop space-y-6">
+            <button onclick="showSection('main')" class="font-bold text-rose-500 flex items-center gap-2"><i class="fas fa-arrow-left"></i> Voltar</button>
+            
+            <div class="soft-card p-8 bg-white border-l-8 border-rose-400">
+                <h2 class="text-2xl font-black text-rose-700 mb-4">O que é o Ciclo Menstrual? 🩸</h2>
+                <p class="text-sm text-rose-600 leading-relaxed mb-4">
+                    O ciclo menstrual é muito mais que apenas a menstruação; é um ciclo de aproximadamente 28 dias onde seu corpo se prepara para uma possível gravidez através de mudanças hormonais. Ele se divide em três fases principais:
+                </p>
+                <ul class="space-y-4 mb-6">
+                    <li class="bg-rose-50/50 p-4 rounded-2xl border-l-4 border-rose-300">
+                        <strong class="text-rose-700">1. Fase Folicular (Inclui a Menstruação):</strong> Começa no primeiro dia do fluxo. O corpo libera estrogênio para preparar o óvulo. É comum sentir menos energia no início, mas ela sobe conforme os dias passam.
+                    </li>
+                    <li class="bg-rose-50/50 p-4 rounded-2xl border-l-4 border-rose-300">
+                        <strong class="text-rose-700">2. Ovulação:</strong> Ocorre no meio do ciclo. É quando você se sente mais radiante, confiante e com a libido mais alta. É o momento de maior fertilidade.
+                    </li>
+                    <li class="bg-rose-50/50 p-4 rounded-2xl border-l-4 border-rose-300">
+                        <strong class="text-rose-700">3. Fase Lútea (Pré-menstrual):</strong> O corpo libera progesterona. Se não houver gravidez, os níveis caem, causando a famosa TPM. Você pode sentir inchaço, sensibilidade e oscilação de humor.
+                    </li>
+                </ul>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-rose-50 p-4 rounded-2xl"><h4 class="font-bold text-rose-800 text-xs mb-1 uppercase">🌿 Cólicas</h4><p class="text-[11px] text-rose-600 italic">Aplique calor local e beba chás relaxantes (Camomila ou Canela).</p></div>
+                    <div class="bg-rose-50 p-4 rounded-2xl"><h4 class="font-bold text-rose-800 text-xs mb-1 uppercase">✨ Bem-Estar</h4><p class="text-[11px] text-rose-600 italic">Respeite seu sono na fase lútea. O descanso é essencial para o humor.</p></div>
+                    <div class="bg-rose-50 p-4 rounded-2xl"><h4 class="font-bold text-rose-800 text-xs mb-1 uppercase">☁️ Mal-estar</h4><p class="text-[11px] text-rose-600 italic">Evite alimentos ultraprocessados e excesso de cafeína durante o fluxo.</p></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+                <div class="md:col-span-8 soft-card p-8">
+                    <div id="cal-month" class="text-xl font-bold text-rose-800 capitalize mb-4">Mês</div>
+                    <div id="cal-grid" class="calendar-grid"></div>
+                    <div id="cycle-info" class="mt-8 p-5 bg-rose-50 rounded-3xl text-sm font-bold text-rose-700 hidden"></div>
+                </div>
+                <div class="md:col-span-4 soft-card p-6">
+                    <h4 class="font-bold text-rose-700 mb-4 text-xs uppercase">Início do Último Ciclo</h4>
+                    <input type="date" id="cycle-start" onchange="updateCycleDate()" class="w-full p-3 rounded-xl bg-rose-50 font-bold text-rose-700 outline-none">
+                </div>
+            </div>
+        </section>
+
+        <section id="section-health" class="hidden animate-pop">
+            <div class="soft-card p-10 max-w-2xl mx-auto text-center">
+                <h2 id="health-title" class="text-3xl font-black text-rose-600 mb-8">Saúde e Mente</h2>
+                <div class="space-y-4 text-left">
+                    <div class="p-6 bg-rose-50 rounded-3xl"><h4 class="font-bold text-rose-800">🥗 Nutrição</h4><p id="hint-food" class="text-sm text-rose-600 mt-1"></p></div>
+                    <div class="p-6 bg-rose-50 rounded-3xl"><h4 class="font-bold text-rose-800">💤 Sono Repador</h4><p id="hint-sleep" class="text-sm text-rose-600 mt-1"></p></div>
+                </div>
+                <button onclick="showSection('main')" class="mt-10 btn-primary px-12 py-3 font-bold">Voltar</button>
+            </div>
+        </section>
+    </div>
+
+    <div id="conclusion-modal" class="custom-modal">
+        <div class="modal-paper animate-pop">
+            <div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-black text-rose-600">Finalizar Dia</h2><button onclick="closeConclusion()"><i class="fas fa-times text-rose-300"></i></button></div>
+            <div class="bg-rose-50 p-6 rounded-2xl mb-6">
+                <h4 class="text-[10px] font-black text-rose-400 uppercase mb-4 tracking-widest">Resumo das Conquistas</h4>
+                <div class="flex justify-around text-center">
+                    <div><p class="text-2xl font-black text-rose-600" id="sum-tasks">0</p><p class="text-[10px] uppercase font-bold text-rose-400">Jornada</p></div>
+                    <div><p class="text-2xl font-black text-rose-600" id="sum-habits">0</p><p class="text-[10px] uppercase font-bold text-rose-400">Hábitos</p></div>
+                </div>
+            </div>
+            <textarea id="day-reflection" class="w-full h-32 bg-rose-50 rounded-2xl p-4 text-sm outline-none mb-6" placeholder="Como foi o seu dia? Registre aqui..."></textarea>
+            <button onclick="saveConclusion()" class="w-full btn-primary py-4 font-black">SALVAR CONCLUÍDO</button>
+        </div>
+    </div>
+
+    <div id="diary-modal" class="custom-modal">
+        <div class="modal-paper animate-pop">
+            <h2 class="text-2xl font-black text-rose-600 mb-6">Diário 🌸</h2>
+            <textarea id="diary-area" oninput="state.diaryEntry=this.value; save()" class="w-full h-64 outline-none border-none text-rose-900 text-lg leading-relaxed bg-rose-50/30 p-4 rounded-3xl"></textarea>
+            <button onclick="closeDiary()" class="w-full btn-primary py-4 mt-4 font-bold">FECHAR</button>
+        </div>
+    </div>
+
+    <script>
+        let state = JSON.parse(localStorage.getItem('nexus_v27')) || {
+            points: 0, levelNum: 1, age: 17, tasks: [], streak: 0, lastDay: "", 
+            habits: [
+                {id:1, name:"Beber 2L de Água", done:false}, 
+                {id:2, name:"Fazer Skin Care", done:false}, 
+                {id:3, name:"Leitura bíblica / Livro", done:false}
+            ],
+            lastPeriod: new Date().toISOString().split('T')[0], diaryEntry: "", history: []
+        };
+
+        const ideas = [
+            { title: "Meditação", pts: 30, icon: "🧘‍♀️", desc: "5 minutos de respiração consciente." },
+            { title: "Organizar mesa", pts: 20, icon: "🧹", desc: "Ambiente limpo, mente clara." },
+            { title: "Alongamento", pts: 25, icon: "🤸‍♀️", desc: "Solte a tensão do pescoço e costas." }
+        ];
+
+        function save() { localStorage.setItem('nexus_v27', JSON.stringify(state)); }
+
+        function showSection(name) {
+            ['main', 'cycle', 'health', 'history'].forEach(s => document.getElementById(`section-${s}`).classList.add('hidden'));
+            document.getElementById(`section-${name}`).classList.remove('hidden');
+            if(name === 'cycle') renderCalendar();
+            if(name === 'health') renderHealth();
+            if(name === 'history') renderHistory();
+            if(document.getElementById('sidebar').classList.contains('active')) toggleSidebar();
+        }
+
+        function toggleSidebar() { 
+            document.getElementById('sidebar').classList.toggle('active');
+            document.getElementById('overlay').style.display = document.getElementById('sidebar').classList.contains('active') ? 'block' : 'none';
+        }
+
+        function renderTasks() {
+            document.getElementById('task-list').innerHTML = state.tasks.map(t => `
+                <li class="p-4 bg-white rounded-2xl flex justify-between items-center shadow-sm ${t.done?'task-done':''}">
+                    <div class="flex items-center gap-3"><input type="checkbox" ${t.done?'checked':''} onchange="toggleTask(${t.id})" class="w-5 h-5 accent-rose-500"><span class="font-bold text-rose-900">${t.text}</span></div>
+                    <button onclick="deleteTask(${t.id})" class="text-rose-200"><i class="fas fa-times"></i></button>
+                </li>`).join('');
+        }
+
+        function toggleTask(id) { 
+            const t = state.tasks.find(x => x.id == id); 
+            if(t) { t.done = !t.done; state.points += t.done ? 10 : -10; updateLevel(); renderTasks(); save(); } 
+        }
+
+        function deleteTask(id) { state.tasks = state.tasks.filter(t => t.id !== id); renderTasks(); save(); }
+        function resetJornada() { state.tasks = []; renderTasks(); save(); }
+        
+        function addTask() { 
+            const val = document.getElementById('task-input').value; 
+            if(val) { state.tasks.push({id: Date.now(), text: val, done: false}); document.getElementById('task-input').value = ''; renderTasks(); save(); }
+        }
+
+        function updateLevel() {
+            while(state.points >= 55) { state.levelNum++; state.points -= 55; }
+            if(state.points < 0) state.points = 0;
+            document.getElementById('display-level').innerText = state.levelNum;
+            document.getElementById('current-points').innerText = state.points;
+            document.getElementById('level-bar').style.width = (state.points/55*100) + '%';
+        }
+
+        function openConclusion() {
+            document.getElementById('sum-tasks').innerText = state.tasks.filter(t => t.done).length;
+            document.getElementById('sum-habits').innerText = state.habits.filter(h => h.done).length;
+            document.getElementById('conclusion-modal').style.display = 'flex';
+        }
+        function closeConclusion() { document.getElementById('conclusion-modal').style.display = 'none'; }
+        
+        function saveConclusion() {
+            const text = document.getElementById('day-reflection').value;
+            if(text) {
+                state.history.unshift({ date: new Date().toLocaleDateString(), content: text });
+                document.getElementById('day-reflection').value = "";
+                save();
+                alert("Conclusão registrada nos Salvos!");
+            }
+            closeConclusion();
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            if(state.history.length === 0) { list.innerHTML = `<p class="text-rose-300 italic text-sm">Nenhuma conclusão salva ainda.</p>`; return; }
+            list.innerHTML = state.history.map(h => `
+                <div class="history-item">
+                    <p class="text-[10px] font-black text-rose-400 uppercase mb-1">${h.date}</p>
+                    <p class="text-sm text-rose-800 leading-relaxed">${h.content}</p>
+                </div>`).join('');
+        }
+
+        function renderHabits() {
+            document.getElementById('habit-list').innerHTML = state.habits.map(h => `
+                <div onclick="toggleHabit(${h.id})" 
+                    class="p-4 rounded-xl bg-white border border-rose-100 text-xs font-bold cursor-pointer transition flex justify-between items-center ${h.done?'bg-rose-500 text-white':'text-rose-700'}">
+                    ${h.name} ${h.done ? '<i class="fas fa-check"></i>' : ''}</div>`).join('');
+        }
+
+        function toggleHabit(id) {
+            const h = state.habits.find(x => x.id === id);
+            if(h) { h.done = !h.done; state.points += h.done ? 5 : -5; updateLevel(); renderHabits(); save(); }
+        }
+
+        function renderIdeas() {
+            document.getElementById('idea-list').innerHTML = ideas.map((s, idx) => `
+                <div class="relative">
+                    <button onclick="state.tasks.push({id:Date.now(), text:'${s.title}', done:false}); renderTasks(); save();" 
+                        onmousedown="showTip(${idx})" onmouseup="hideTip(${idx})"
+                        class="w-full text-left p-4 rounded-xl bg-white border border-rose-100 flex justify-between items-center text-xs font-bold text-rose-700">
+                        <span>${s.icon} ${s.title}</span> <span class="text-rose-300">+${s.pts}</span>
+                    </button><div id="tip-${idx}" class="tooltip">${s.desc}</div>
+                </div>`).join('');
+        }
+        function showTip(id) { document.getElementById(`tip-${id}`).style.display = 'block'; }
+        function hideTip(id) { setTimeout(() => document.getElementById(`tip-${id}`).style.display = 'none', 1500); }
+
+        function renderCalendar() {
+            const grid = document.getElementById('cal-grid'); grid.innerHTML = '';
+            document.getElementById('cal-month').innerText = new Intl.DateTimeFormat('pt-BR', {month:'long', year:'numeric'}).format(new Date());
+            const days = new Date(new Date().getFullYear(), new Date().getMonth()+1, 0).getDate();
+            for(let d=1; d<=days; d++) {
+                const date = new Date(new Date().getFullYear(), new Date().getMonth(), d);
+                const diff = Math.floor((date - new Date(state.lastPeriod)) / 86400000);
+                const dayCycle = ((diff % 28) + 28) % 28;
+                let cls = "day-cell";
+                let info = "Fase normal.";
+                if(dayCycle < 5) { cls += " day-period"; info="🩸 Menstruação"; }
+                else if(dayCycle >= 10 && dayCycle <= 16) { cls += " day-fertile"; info="✨ Período Fértil"; }
+                if(date.toDateString() === new Date().toDateString()) cls += " day-today";
+                grid.innerHTML += `<div class="${cls}" onclick="showCycleInfo('${info}')">${d}</div>`;
+            }
+        }
+
+        function showCycleInfo(msg) { document.getElementById('cycle-info').classList.remove('hidden'); document.getElementById('cycle-info').innerText = msg; }
+        function openDiary() { document.getElementById('diary-modal').style.display = 'flex'; toggleSidebar(); }
+        function closeDiary() { document.getElementById('diary-modal').style.display = 'none'; }
+        function handleMood() { state.points+=10; updateLevel(); document.getElementById('morning-card').classList.add('hidden'); save(); }
+        function updateCycleDate() { state.lastPeriod = document.getElementById('cycle-start').value; renderCalendar(); save(); }
+        function updateAge() { state.age = document.getElementById('user-age').value; renderHealth(); save(); }
+        function renderHealth() { 
+            document.getElementById('health-title').innerText = `Saúde aos ${state.age} anos`; 
+            document.getElementById('hint-food').innerText = "Priorize ferro e cálcio durante o ciclo para evitar fadiga."; 
+            document.getElementById('hint-sleep').innerText = "O sono de qualidade ajuda a regular o humor na TPM."; 
+        }
+
+        window.onload = () => {
+            const today = new Date().toLocaleDateString();
+            if(state.lastDay !== today) { 
+                state.lastDay = today; state.streak++; 
+                state.habits.forEach(h => h.done = false); // Reset diário dos hábitos
+                state.tasks.forEach(t => t.done = false);  // Reset diário da jornada
+                save(); 
+            }
+            document.getElementById('user-age').value = state.age;
+            document.getElementById('cycle-start').value = state.lastPeriod;
+            document.getElementById('diary-area').value = state.diaryEntry;
+            document.getElementById('streak-count').innerText = state.streak;
+            renderTasks(); renderHabits(); renderIdeas(); updateLevel(); renderHealth();
+        };
+    </script>
+</body>
+</html>
